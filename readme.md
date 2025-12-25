@@ -1,22 +1,46 @@
-# ESP32 Smart Piano Trigger (VL53L0X)
+# ESP32 Smart Piano Trigger
 
-This project turns an ESP32 into an interactive “piano key”. When someone steps in front of a VL53L0X (GY-53) distance sensor (distance below a threshold), the ESP32 plays a WAV file from LittleFS. When the person leaves (threshold + hysteresis), playback stops.
+This project turns an ESP32 into an interactive "piano key". It plays a sound when someone steps in front of a distance sensor (VL53L0X).
 
-## Features
+There are two versions included in this project:
+1.  **Simple Version:** Hardcoded single sound, no WiFi.
+2.  **Advanced Version:** Web interface for configuration, multiple sounds (C, D, E...), WiFi AP with Captive Portal.
 
-- VL53L0X distance trigger with hysteresis
-- WAV playback from LittleFS (`/piano.wav`)
-- Debug output: current distance, PLAY/STOP events
-- Simple sensor glitch filter (ignores short “out of range” bursts)
+---
 
-## Hardware
+## 🚀 Quick Start (PlatformIO)
+
+This project uses **two separate environments**. Choose the one you want to upload in PlatformIO:
+
+### 1. Simple Version (`env:main_easy`)
+- **File:** `src/main_simple.cpp`
+- **Features:**
+    - Plays `/piano.wav` from LittleFS.
+    - Config (Trigger distance, Volume) is hardcoded in `main_simple.cpp`.
+    - No WiFi, instant start.
+
+### 2. Advanced Version (`env:main`)
+- **File:** `src/main.cpp`
+- **Features:**
+    - **WiFi Access Point:** Creates "Piano-Config" (Pass: `Piano1234`) for 5 minutes after boot.
+    - **Captive Portal:** Automatically opens settings page on phone connection.
+    - **Web Interface:** Set Trigger Distance, Volume, and upload new sounds via browser.
+    - **Multi-Sound:** Upload sounds for notes C, D, E, F, G, A, H and select the active one.
+    - **Persistence:** Settings are saved permanently (even after reboot).
+
+**To upload:**
+- In VS Code (PlatformIO): Project Tasks -> **env:main** (or main_easy) -> **Upload**.
+- **Don't forget:** Upload Filesystem Image first!
+
+---
+
+## 🛠 Hardware Setup
 
 ### Parts
-- ESP32 DevKit (powered via USB)
-- GY-53 / VL53L0X ToF sensor (I2C)
-- Small speaker (e.g. 8Ω / 0.25W)
-- **Option A (quick & dirty):** BC546B + base resistor (recommended: 1kΩ)
-- **Option B (recommended):** PAM8403 amplifier module (cleaner, louder)
+- **ESP32 DevKit V1**
+- **GY-53 (VL53L0X)** Time-of-Flight Sensor
+- **Speaker** (8 Ohm / 0.25W)
+- **Amplifier:** PAM8403 Module (Recommended) OR Transistor (BC546B)
 
 ### Wiring (Sensor)
 | Sensor | ESP32 |
@@ -26,66 +50,36 @@ This project turns an ESP32 into an interactive “piano key”. When someone st
 | SDA | GPIO 21 |
 | SCL | GPIO 22 |
 
-### Wiring (Audio) – Option A: BC546B (simple transistor driver)
-**BC546B pinout (flat side facing you):** Left=C, Middle=B, Right=E
-
-ESP32 VIN (5V)  -----> Speaker (+)
-Speaker (-)     -----> BC546B Collector (C)
-BC546B Emitter (E) -----> ESP32 GND
-ESP32 GPIO25 (DAC) --[1kΩ]--> BC546B Base (B)
-
-#### Optimization idea: reduce clicking / popping
-A simple transistor+speaker setup tends to “pop” when starting/stopping due to DC offsets / abrupt waveform steps.
-
-- Best fix: use a small amplifier board (PAM8403).
-- Alternative: add a coupling capacitor in series with the speaker (e.g. 100µF–470µF), and/or ensure the WAV has tiny fade-in/out.
-
-### Wiring (Audio) – Option B: PAM8403 (recommended)
+### Wiring (Audio - Recommended)
+Using a **PAM8403** amplifier eliminates "popping/clicking" noise and is much louder.
 ESP32 VIN (5V)  -----> PAM8403 VCC
 ESP32 GND       -----> PAM8403 GND
-ESP32 GPIO25    -----> PAM8403 INL (or INR)
-PAM8403 OUTL+/OUTL- -> Speaker
+ESP32 GPIO25    -----> PAM8403 L_IN
+PAM8403 L_OUT   -----> Speaker
 
-## Audio file requirements (`piano.wav`)
+### Wiring (Audio - Simple Transistor)
+*Note: This circuit is quiet and may cause clicking sounds on start/stop.*
+ESP32 VIN (5V)  -----> Speaker (+)
+Speaker (-)     -----> BC546B Collector
+ESP32 GND       -----> BC546B Emitter
+ESP32 GPIO25    --[1kΩ]-- BC546B Base
 
-Put the file here:
-project/
-  data/
-    piano.wav
+---
 
-Recommended WAV format for best compatibility:
-- Mono
-- 16-bit PCM
-- Sample rate: 22050 Hz (or 16000 Hz)
-- Keep it short enough to fit into LittleFS
-- files can be converted with https://audio.online-convert.com/convert-to-wav
+## 🎵 Audio Files
 
-To reduce “clicks” inside the sample:
-- Apply a very short fade-in and fade-out (e.g. 5–10 ms)
-- Ensure the waveform starts/ends near zero crossing
+- **Format:** WAV, Mono, 16-bit PCM, 22050 Hz (or 16000 Hz). (can be converted using https://audio.online-convert.com/convert-to-wav)
+- **Location:** Put default files in `data/` folder (e.g., `C.wav`, `piano.wav`).
+- **Optimization:** Add a short Fade-In (10ms) and Fade-Out (10ms) to your WAV files to prevent clicking noises.
 
+---
 
-## Build & upload steps
+## 📂 Project Structure
 
-1. Place `piano.wav` into the `data/` folder.
-2. Upload the filesystem image:
-   - PlatformIO: Project Tasks → esp32dev → Platform → Upload Filesystem Image
-3. Upload firmware:
-   - PlatformIO: Upload
-4. Open serial monitor at 115200 and watch debug output.
-
-## Runtime behavior (debug)
-
-- Prints distance updates (filtered) every time it changes significantly
-- Prints:
-  - `>> PLAY` when triggered
-  - `<< STOP` when leaving range
-
-## Troubleshooting
-
-### Sensor prints values but playback never starts
-- Your trigger threshold is too low/high. If you see distances like 2000mm, set trigger higher or move closer.
-
-### No sound
-- Verify `piano.wav` exists and you uploaded filesystem image.
-- Verify GPIO25 is connected to your amplifier/driver.
+├── platformio.ini      # Configuration for env:main and env:main_easy
+├── data/               # WAV files (Upload this via "Upload Filesystem Image")
+│   ├── piano.wav       # Default for simple version
+│   └── C.wav           # Default note for advanced version
+└── src/
+    ├── main.cpp        # Code for Advanced Version
+    └── main_simple.cpp # Code for Simple Version
