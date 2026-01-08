@@ -39,7 +39,7 @@ This project uses **two separate environments**. Choose the one you want to uplo
 ### Parts
 - **ESP32 DevKit V1**
 - **GY-53 (VL53L0X)** Time-of-Flight Sensor
-- **Speaker** (8 Ohm / 0.25W)
+- **Speaker** (8 Ohm / ?? W)
 - **Amplifier:** PAM8403 Module (Recommended) OR Transistor (BC546B)
 
 ### Wiring (Sensor)
